@@ -8,6 +8,8 @@ from aiogram.types import BotCommand, Message
 from aiogram.filters import Command
 from dataclasses import dataclass
 import re
+import mysql.connector
+
 
 # Инициализация телеграм-бота
 @dataclass
@@ -69,7 +71,7 @@ async def main():
 
         news_text = ""
         for url, text in messages_dict.items():
-            news_text += f'<b>Ссылка:</b> <a href="{escape_html(url)}">{escape_html(url)}</a>\n\n{escape_html(text)}\n\n🤖'
+            news_text += f'<b>Ссылка:</b> <a href="{escape_html(url)}">{escape_html(url)}</a>\n\n{escape_html(text)}\n\n---\n\n'
 
         # Ограничение длины сообщения в Telegram составляет 4096 символов.
         # Если текст превышает это количество, его нужно разбить на части.
