@@ -3,11 +3,56 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 import openai
 import time
+from aiogram import Bot, Dispatcher, Router
+from aiogram.types import BotCommand, Message
+from aiogram.filters import Command
+from dataclasses import dataclass
+
+# Инициализация телеграм-бота
+@dataclass
+class TgBot:
+    token: str  # Токен для доступа к телеграм-боту
+
+@dataclass
+class Config:
+    tg_bot: TgBot
+
+def load_config(path: str | None = None) -> Config:
+    return Config(tg_bot=TgBot(token=''))
+
+config = load_config()
+bot = Bot(token=config.tg_bot.token)
+
+# Initialize module-level router
+router = Router()
+
 
 
 client = TelegramClient(phone, api_id, api_hash)
 
+messages_dict = {}
+
 async def main():
+    config: Config = load_config()
+    bot = Bot(token=config.tg_bot.token)
+    dp = Dispatcher()
+
+    dp.include_router(router)
+
+    # Этот хэндлер будет срабатывать на команду /start
+    @router.message(Command(commands=["start"]))
+    async def process_start_command(message: Message):
+        await message.answer(
+            text='Этот бот будет ежедневно присылать вам новости из SEO телеграм-каналов'
+        )
+
+    # Этот хэндлер будет срабатывать на команду /start
+    @router.message(Command(commands=["getnews"]))
+    async def process_start_command(message: Message):
+        for url in messages_dict:
+            await message.answer(text=f"Ссылка: {url}\n\n {messages_dict[url]}\n\n"
+            )
+
     try:
         await client.start()
         print("Client started successfully")
@@ -19,8 +64,8 @@ async def main():
         print(f"Retrieved {len(dialogs)} dialogs")
 
         one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
-        messages_dict = {}
-        messages_dict_ua = {}
+
+        global messages_dict
 
         my_groups = ('Англоязычное SEO', 'Николай Кодий: SEO, PBN, ГЕМБЛА, МЫСЛИ', 'Searchengines - новости seo, продвижение сайтов, контекст, маркетинг, digital',
                      'Лайфхаки по SEO | Кирилл Рамирас', 'SEO для роботов', 'DrMax SEO', 'SEO без воды', 'АлаичЪ про SEO, бизнес и …', 'SEO продуктовое')
@@ -45,10 +90,14 @@ async def main():
         await client.disconnect()
         print("Client disconnected successfully")
         print(messages_dict)
-        return messages_dict
+        #return messages_dict
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
+    # Пропускаем накопившиеся апдейты и запускаем polling
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
