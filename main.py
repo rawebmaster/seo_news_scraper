@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.types import BotCommand, Message
 from aiogram.filters import Command
 from dataclasses import dataclass
+import re
 
 # Инициализация телеграм-бота
 @dataclass
@@ -32,6 +33,19 @@ client = TelegramClient(phone, api_id, api_hash)
 
 messages_dict = {}
 
+def escape_html(text: str) -> str:
+    escape_chars = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }
+    text = re.sub(r'([&<>"\'])', lambda match: escape_chars[match.group(0)], text)
+    # Заменяем двойные звёздочки на теги <b> и </b>
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+    return text
+
 async def main():
     config: Config = load_config()
     bot = Bot(token=config.tg_bot.token)
@@ -46,12 +60,22 @@ async def main():
             text='Этот бот будет ежедневно присылать вам новости из SEO телеграм-каналов'
         )
 
-    # Этот хэндлер будет срабатывать на команду /start
+    # Этот хэндлер будет срабатывать на команду /getnews
     @router.message(Command(commands=["getnews"]))
-    async def process_start_command(message: Message):
-        for url in messages_dict:
-            await message.answer(text=f"Ссылка: {url}\n\n {messages_dict[url]}\n\n"
-            )
+    async def process_getnews_command(message: Message):
+        if not messages_dict:
+            await message.answer("Нет новостей за последний день.")
+            return
+
+        news_text = ""
+        for url, text in messages_dict.items():
+            news_text += f'<b>Ссылка:</b> <a href="{escape_html(url)}">{escape_html(url)}</a>\n\n{escape_html(text)}\n\n🤖'
+
+        # Ограничение длины сообщения в Telegram составляет 4096 символов.
+        # Если текст превышает это количество, его нужно разбить на части.
+        MAX_MESSAGE_LENGTH = 4096
+        for chunk in [news_text[i:i + MAX_MESSAGE_LENGTH] for i in range(0, len(news_text), MAX_MESSAGE_LENGTH)]:
+            await message.answer(chunk, parse_mode="HTML")
 
     try:
         await client.start()
@@ -90,7 +114,6 @@ async def main():
         await client.disconnect()
         print("Client disconnected successfully")
         print(messages_dict)
-        #return messages_dict
 
     except Exception as e:
         print(f"An error occurred: {e}")
